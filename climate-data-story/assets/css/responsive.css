@@ -1,0 +1,2 @@
+﻿/* Media queries */
+@media (max-width: 768px){ nav ul{gap:6px} section.component{padding:32px 0} }

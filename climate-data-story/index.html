@@ -1,0 +1,65 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Climate Data Story</title>
+  <link rel="stylesheet" href="assets/css/global.css" />
+  <link rel="stylesheet" href="assets/css/animations.css" />
+  <link rel="stylesheet" href="assets/css/responsive.css" />
+</head>
+<body>
+  <header>
+    <nav>
+      <ul>
+        <li><a href="#hero">Inicio</a></li>
+        <li><a href="#overview">Visión Global</a></li>
+        <li><a href="#timeline">Línea de tiempo</a></li>
+        <li><a href="#countries">Países</a></li>
+        <li><a href="#energy">Energía</a></li>
+        <li><a href="#correlation">Correlación</a></li>
+        <li><a href="#predictions">Proyecciones</a></li>
+        <li><a href="#conclusions">Conclusiones</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Componentes -->
+    <div id="app"></div>
+  </main>
+
+  <script src="assets/js/utils.js"></script>
+  <script src="assets/js/data-processor.js"></script>
+  <script src="assets/js/visualizations.js"></script>
+  <script src="assets/js/interactions.js"></script>
+  <script src="assets/js/scroll-animations.js"></script>
+
+  <script>
+    // Cargar componentes en orden básico (placeholder simple)
+    const app = document.getElementById('app');
+    const parts = [
+      'components/01_data_processor.html',
+      'components/02_hero_section.html',
+      'components/03_global_overview.html',
+      'components/04_timeline.html',
+      'components/05_country_explorer.html',
+      'components/06_energy_analysis.html',
+      'components/07_temperature_correlation.html',
+      'components/08_predictions.html',
+      'components/09_conclusions.html'
+    ];
+    (async () => {
+      for (const p of parts) {
+        try {
+          const res = await fetch(p);
+          const html = await res.text();
+          const sec = document.createElement('section');
+          sec.innerHTML = html;
+          app.appendChild(sec);
+        } catch (e) { console.error('No se pudo cargar:', p, e); }
+      }
+    })();
+  </script>
+</body>
+</html>

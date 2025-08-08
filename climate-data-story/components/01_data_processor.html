@@ -1,0 +1,459 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Climate Data Processor</title>
+    <link rel="stylesheet" href="../assets/css/global.css">
+    <link rel="stylesheet" href="../assets/css/animations.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <header class="header text-center section">
+            <h1 class="title-hero animate-fade-in-down">
+                🌍 Climate Data Processor
+            </h1>
+            <p class="subtitle text-muted animate-fade-in-up delay-200">
+                Upload your climate dataset to begin our journey through the data story of our changing planet
+            </p>
+        </header>
+
+        <!-- Upload Section -->
+        <section class="upload-section animate-fade-in-up delay-300" id="uploadSection">
+            <div class="upload-icon">📊</div>
+            <h3 class="title-card">Upload Your Climate Dataset</h3>
+            <p class="text-muted">
+                Supported formats: CSV files with climate and emissions data
+            </p>
+            <input type="file" id="fileInput" class="file-input" accept=".csv">
+            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                Choose CSV File
+            </button>
+            <div class="upload-help">
+                <p class="text-muted">
+                    Expected columns: Year, Country, Total.CO2, Per.Capita.CO2, Population, Temp_Change, etc.
+                </p>
+            </div>
+        </section>
+
+        <!-- Processing Status -->
+        <div class="processing-status" id="processingStatus">
+            <div class="loading-spinner"></div>
+            <span id="processingText">Processing your data...</span>
+        </div>
+
+        <!-- Data Preview -->
+        <section class="data-preview" id="dataPreview">
+            <h3 class="title-section text-center">📈 Data Overview</h3>
+            
+            <!-- Statistics Grid -->
+            <div class="data-stats" id="dataStats">
+                <div class="stat-card animate-scale-in delay-100">
+                    <span class="stat-number" id="totalRecords">0</span>
+                    <div class="stat-label">Total Records</div>
+                </div>
+                <div class="stat-card animate-scale-in delay-200">
+                    <span class="stat-number" id="totalCountries">0</span>
+                    <div class="stat-label">Countries</div>
+                </div>
+                <div class="stat-card animate-scale-in delay-300">
+                    <span class="stat-number" id="yearRange">-</span>
+                    <div class="stat-label">Year Range</div>
+                </div>
+                <div class="stat-card animate-scale-in delay-400">
+                    <span class="stat-number" id="totalEmissions">0</span>
+                    <div class="stat-label">Total CO₂ (Latest Year)</div>
+                </div>
+            </div>
+
+            <!-- Top Emitters Preview -->
+            <div class="top-emitters-section">
+                <h4 class="title-card">🏭 Top 5 Emitters (Latest Year)</h4>
+                <div class="emitters-grid" id="topEmitters">
+                    <!-- Dynamic content -->
+                </div>
+            </div>
+
+            <!-- Sample Data Table -->
+            <div class="sample-data">
+                <h4 class="title-card">📋 Sample Data (First 10 rows)</h4>
+                <div class="table-container">
+                    <table class="data-table" id="sampleTable">
+                        <thead id="tableHead">
+                            <!-- Dynamic headers -->
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="proceedToVisualization()">
+                    🚀 Start Data Story
+                </button>
+                <button class="btn btn-secondary" onclick="downloadProcessedData()">
+                    💾 Download Processed Data
+                </button>
+                <button class="btn btn-secondary" onclick="resetProcessor()">
+                    🔄 Load New Dataset
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Include JavaScript -->
+    <script src="../assets/js/data-processor.js"></script>
+    <script>
+        // Global variables
+        let dataProcessor = new ClimateDataProcessor();
+        let processedData = null;
+
+        // File input handler
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        });
+
+        // Process uploaded file
+        async function processFile(file) {
+            try {
+                showProcessingStatus(true);
+                
+                const result = await dataProcessor.processCSV(file);
+                
+                if (result.success) {
+                    showProcessingStatus(false);
+                    displayDataPreview(result);
+                    processedData = dataProcessor.getDataSummary();
+                    
+                    // Store data globally for other components
+                    window.climateData = dataProcessor;
+                    
+                    console.log('Data processed successfully:', result);
+                } else {
+                    throw new Error('Failed to process data');
+                }
+            } catch (error) {
+                showProcessingStatus(false);
+                showError('Error processing file: ' + error.message);
+            }
+        }
+
+        // Show/hide processing status
+        function showProcessingStatus(show) {
+            const status = document.getElementById('processingStatus');
+            if (show) {
+                status.style.display = 'flex';
+                status.classList.add('animate-fade-in-up');
+            } else {
+                status.style.display = 'none';
+            }
+        }
+
+        // Display data preview
+        function displayDataPreview(result) {
+            const preview = document.getElementById('dataPreview');
+            preview.style.display = 'block';
+            preview.classList.add('animate-slide-in-up');
+
+            // Update statistics
+            document.getElementById('totalRecords').textContent = formatNumber(result.rowCount, 0);
+            document.getElementById('totalCountries').textContent = result.countries;
+            document.getElementById('yearRange').textContent = 
+                `${result.yearRange.min} - ${result.yearRange.max}`;
+            document.getElementById('totalEmissions').textContent = 
+                formatNumber(result.stats.totalEmissions) + ' Mt';
+
+            // Display top emitters
+            displayTopEmitters(result.stats.topEmitters);
+
+            // Display sample data table
+            displaySampleTable();
+        }
+
+        // Display top emitters
+        function displayTopEmitters(topEmitters) {
+            const container = document.getElementById('topEmitters');
+            container.innerHTML = '';
+
+            topEmitters.slice(0, 5).forEach((emitter, index) => {
+                const emitterCard = document.createElement('div');
+                emitterCard.className = `emitter-card animate-fade-in-left delay-${(index + 1) * 100}`;
+                emitterCard.innerHTML = `
+                    <div class="rank">#${index + 1}</div>
+                    <div class="country-name">${emitter.country}</div>
+                    <div class="emissions">${formatNumber(emitter.emissions)} Mt CO₂</div>
+                    <div class="per-capita">${emitter.perCapita.toFixed(2)} t/capita</div>
+                `;
+                container.appendChild(emitterCard);
+            });
+        }
+
+        // Display sample data table
+        function displaySampleTable() {
+            const sampleData = dataProcessor.processedData.slice(0, 10);
+            const tableHead = document.getElementById('tableHead');
+            const tableBody = document.getElementById('tableBody');
+
+            if (sampleData.length === 0) return;
+
+            // Create table headers
+            const headers = Object.keys(sampleData[0]);
+            const headerRow = document.createElement('tr');
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header.replace(/([A-Z])/g, ' $1').trim();
+                headerRow.appendChild(th);
+            });
+            tableHead.innerHTML = '';
+            tableHead.appendChild(headerRow);
+
+            // Create table body
+            tableBody.innerHTML = '';
+            sampleData.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.className = `animate-fade-in-up delay-${index * 50}`;
+                
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    let value = row[header];
+                    
+                    // Format numbers
+                    if (typeof value === 'number') {
+                        if (header.includes('CO2') || header.includes('Energy')) {
+                            value = formatNumber(value);
+                        } else if (header === 'population') {
+                            value = formatNumber(value, 0);
+                        } else {
+                            value = value.toFixed(2);
+                        }
+                    }
+                    
+                    td.textContent = value || '-';
+                    tr.appendChild(td);
+                });
+                
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message animate-fade-in-up';
+            errorDiv.innerHTML = `
+                <div class="error-content">
+                    <span class="error-icon">⚠️</span>
+                    <span class="error-text">${message}</span>
+                    <button class="error-close" onclick="this.parentElement.parentElement.remove()">×</button>
+                </div>
+            `;
+            document.querySelector('.container').appendChild(errorDiv);
+        }
+
+        // Proceed to visualization
+        function proceedToVisualization() {
+            if (!window.climateData || !window.climateData.isDataLoaded) {
+                showError('Please load and process data first');
+                return;
+            }
+            
+            // Redirect to main story or next component
+            window.location.href = '../index.html';
+        }
+
+        // Download processed data
+        function downloadProcessedData() {
+            if (!dataProcessor.isDataLoaded) {
+                showError('No data to download');
+                return;
+            }
+
+            const data = dataProcessor.exportData('csv');
+            const blob = new Blob([data], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'processed_climate_data.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Reset processor
+        function resetProcessor() {
+            dataProcessor = new ClimateDataProcessor();
+            document.getElementById('dataPreview').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+            window.climateData = null;
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add any initialization code here
+            console.log('Climate Data Processor initialized');
+        });
+    </script>
+
+    <style>
+        /* Additional styles specific to data processor */
+        .upload-section {
+            cursor: pointer;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+        }
+
+        .upload-help {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .processing-status {
+            display: none;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--primary-green);
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+        }
+
+        .emitters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .emitter-card {
+            background: var(--bg-card);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            text-align: center;
+            transition: all var(--transition-normal);
+        }
+
+        .emitter-card:hover {
+            transform: translateY(-3px);
+            background: var(--bg-glass-strong);
+        }
+
+        .rank {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-yellow);
+        }
+
+        .country-name {
+            font-weight: 600;
+            margin: 0.5rem 0;
+        }
+
+        .emissions {
+            color: var(--primary-red);
+            font-weight: 500;
+        }
+
+        .per-capita {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .data-table th {
+            background: rgba(59, 130, 246, 0.2);
+            font-weight: 600;
+            color: #93c5fd;
+            position: sticky;
+            top: 0;
+        }
+
+        .data-table td {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tr:hover td {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .error-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            max-width: 400px;
+        }
+
+        .error-content {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .error-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            margin-left: auto;
+        }
+
+        @media (max-width: 768px) {
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width:
